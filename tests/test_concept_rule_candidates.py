@@ -190,6 +190,8 @@ def test_concept_workflow_prioritizes_authoritative_sources():
     assert len(result["graph"]) >= 1
     assert len(result["history"]) >= 1
     assert any(item["approved_by"] == "alice" for item in result["history"])
+    assert "assurance" in result
+    assert result["assurance"]["passed"] is True
 
 
 def test_concept_workflow_keeps_endoxa_pending():
@@ -200,6 +202,8 @@ def test_concept_workflow_keeps_endoxa_pending():
     assert result["pending_count"] == 1
     assert result["history"][0]["epistemic_status"] == "Endoxa"
     assert result["history"][0]["approved_by"] == ""
+    assert result["assurance"]["pending_propositions"]
+    assert result["status"] == "pending"
 
 
 def test_versioned_fact_graph_serializes_rdf_and_json():

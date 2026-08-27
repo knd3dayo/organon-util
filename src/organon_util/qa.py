@@ -10,6 +10,9 @@ from .extractor import Proposition, extract_propositions
 from .source import SourceRecord
 
 
+_JAPANESE_STOPWORDS = {"業務", "本稿", "実装", "情報"}
+
+
 @dataclass(frozen=True)
 class IndexedProposition:
     proposition_id: str
@@ -37,6 +40,11 @@ class IndexedProposition:
             "source_uri": self.source_uri,
             "checksum": self.checksum,
             "retrieved_at": self.retrieved_at,
+            "modality": self.proposition.modality,
+            "tense": self.proposition.tense,
+            "claim_type": self.proposition.claim_type,
+            "fallacy_details": self.proposition.fallacy_details,
+            "proposition_source_record_id": self.proposition.source_record_id,
         }
         if score is not None:
             item["retrieval_score"] = score
@@ -60,9 +68,15 @@ def _terms(value: str) -> set[str]:
     normalized = value.lower().strip()
     terms: set[str] = set()
     for token in re.findall(r"[a-z0-9_]+|[一-龯々ぁ-んァ-ヶー]+", normalized):
+        if token in _JAPANESE_STOPWORDS:
+            continue
         terms.add(token)
         if re.fullmatch(r"[一-龯々ぁ-んァ-ヶー]+", token):
-            terms.update(token[index : index + 2] for index in range(len(token) - 1))
+            terms.update(
+                token[index : index + 2]
+                for index in range(len(token) - 1)
+                if token[index : index + 2] not in _JAPANESE_STOPWORDS
+            )
     if not terms and normalized:
         terms.add(normalized)
     return terms
@@ -95,8 +109,12 @@ class KnowledgeAssistant:
     def add_source_record(self, record: SourceRecord) -> None:
         """Extract and index a document-search-util source record."""
         source_authority = str(record.metadata.get("source_authority", "contextual"))
+        propositions = extract_propositions(record.content)
+        for proposition in propositions:
+            proposition.source_record_id = record.logical_id
+            proposition.source_uri = record.source_uri
         self.add_propositions(
-            extract_propositions(record.content),
+            propositions,
             document_id=record.source_id,
             source_authority=source_authority,
             logical_id=record.logical_id,

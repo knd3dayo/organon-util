@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import re
+import hashlib
 from dataclasses import dataclass, field
-from typing import List
+from typing import Any, List
 
 
 @dataclass
@@ -16,6 +17,26 @@ class Proposition:
     rationale: str = ""
     source_quote: str = ""
     tags: List[str] = field(default_factory=list)
+    modality: str = "ACTUAL"
+    tense: str = "PRESENT"
+    claim_type: str = "statement"
+    fallacy_details: dict[str, Any] | None = None
+    proposition_id: str = ""
+    source_record_id: str = ""
+    source_uri: str = ""
+
+    def __post_init__(self) -> None:
+        if self.modality not in {"MUST", "MAY", "ACTUAL"}:
+            raise ValueError(f"unsupported modality: {self.modality}")
+        if self.tense not in {"PRESENT", "FUTURE"}:
+            raise ValueError(f"unsupported tense: {self.tense}")
+        if self.epistemic_status not in {"Fact", "Endoxa", "Fallacy"}:
+            raise ValueError(f"unsupported epistemic_status: {self.epistemic_status}")
+        if not self.proposition_id:
+            value = "\x1f".join(
+                [self.source, self.subject, self.predicate, self.object, self.source_quote]
+            )
+            self.proposition_id = f"prop-{hashlib.sha1(value.encode('utf-8')).hexdigest()[:12]}"
 
 
 def _normalize(text: str) -> str:
@@ -35,6 +56,11 @@ def _clean_markdown(text: str) -> str:
     cleaned = re.sub(r"\[[^\]]*\]\([^\)]*\)", "", cleaned)
     cleaned = re.sub(r"\s+", " ", cleaned)
     return cleaned.strip()
+
+
+def _prepare_text(text: str) -> str:
+    """Remove documentation markup before sentence-level extraction."""
+    return _clean_markdown(text)
 
 
 def _classify_epistemic_status(sentence: str) -> str:
@@ -115,7 +141,7 @@ def extract_propositions(text: str) -> List[Proposition]:
     It supports both the initial specification examples and general concept-doc
     language such as 'XではYを避けられない'.
     """
-    normalized = text.strip()
+    normalized = _prepare_text(text)
     if not normalized:
         return []
 

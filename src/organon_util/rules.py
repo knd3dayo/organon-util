@@ -35,6 +35,12 @@ class FactStatement:
     superseded_by: str = ""
     source: str = "document"
     approved_by: str = ""
+    modality: str = "ACTUAL"
+    tense: str = "PRESENT"
+    claim_type: str = "statement"
+    fallacy_details: Dict[str, Any] | None = None
+    proposition_id: str = ""
+    source_record_id: str = ""
 
 
 class VersionedFactGraph:
@@ -108,6 +114,12 @@ class VersionedFactGraph:
                 "superseded_by": fact.superseded_by,
                 "source": fact.source,
                 "approved_by": fact.approved_by,
+                "modality": fact.modality,
+                "tense": fact.tense,
+                "claim_type": fact.claim_type,
+                "fallacy_details": fact.fallacy_details,
+                "proposition_id": fact.proposition_id,
+                "source_record_id": fact.source_record_id,
             }
             for fact in self._facts
         ]

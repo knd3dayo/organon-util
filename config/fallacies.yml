@@ -1,0 +1,24 @@
+fallacies:
+  - fallacy_id: equivocation
+    name: 曖昧語の虚偽
+    category: ambiguity
+    detection:
+      same_term_multiple_meanings: true
+    action: pending_review
+    explanation: "同じ名辞の意味が論証の途中ですり替わっている"
+
+  - fallacy_id: hasty_generalization
+    name: 早まった一般化
+    category: scope
+    detection:
+      particular_to_universal: true
+    action: downgrade_or_request_evidence
+    explanation: "少数の事例から全体の性質を断定している"
+
+  - fallacy_id: ad_verecundiam
+    name: 権威論証
+    category: evidence
+    detection:
+      authority_without_independent_evidence: true
+    action: keep_as_endoxa
+    explanation: "権威者の発言だけを根拠に事実化している"

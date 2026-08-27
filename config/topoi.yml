@@ -1,0 +1,30 @@
+topoi:
+  - topoi_id: genus_species_scope
+    name: 類と種の適用範囲
+    category: scope
+    premise_pattern:
+      predicate: is_a
+    conclusion_pattern:
+      relation: scope_contains
+    risk:
+      - illicit_generalization
+    explanation: "類は種より広い適用範囲を持つ"
+    automation_level: deterministic
+
+  - topoi_id: definition_consistency
+    name: 定義の一貫性
+    category: definition
+    check:
+      same_term_same_context: true
+    explanation: "同じ名辞を推論中に異なる意味で使用していないか確認する"
+    automation_level: assisted
+
+  - topoi_id: particular_to_universal_scope
+    name: 特称から全称への適用範囲の拡張
+    category: scope
+    premise_pattern:
+      modality: MUST
+    risk:
+      - illicit_generalization
+    explanation: "特定事例の命題を類全体へ拡張していないか確認する"
+    automation_level: deterministic

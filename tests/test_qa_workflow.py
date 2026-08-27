@@ -118,3 +118,100 @@ def test_source_record_can_be_created_from_search_result_mapping():
     assert record.source_id == "ticket-105"
     assert record.retrieved_at is not None
     assert record.as_dict()["source_uri"] == "jira://ticket/105"
+
+
+def test_source_adapter_converts_document_search_results():
+    from organon_util.source_adapter import source_records_from_search_results
+
+    records = source_records_from_search_results(
+        [
+            {
+                "logical_id": "manual#chunk-1",
+                "source_id": "manual",
+                "content": "MCPは外部知識を動的に注入する。",
+                "source_uri": "s3://docs/manual.pdf",
+            }
+        ]
+    )
+
+    assert len(records) == 1
+    assert records[0].logical_id == "manual#chunk-1"
+
+
+def test_source_record_workflow_connects_extraction_assurance_and_answer():
+    from organon_util.workflow import run_source_record_workflow
+
+    result = run_source_record_workflow(
+        SourceRecord(
+            logical_id="concept#chunk-1",
+            source_id="concept",
+            source_uri="file:///concept.md",
+            content="MCPは外部知識を動的に注入する。",
+            metadata={"source_authority": "factual"},
+        ),
+        query="外部知識",
+    )
+
+    assert result["assurance"]["passed"] is True
+    assert result["answer"]["facts"][0]["source_uri"] == "file:///concept.md"
+    assert result["propositions"][0]["source_record_id"] == "concept#chunk-1"
+
+
+def test_source_record_workflow_uses_injected_llm_for_extraction_and_answer():
+    from organon_util.workflow import run_source_record_workflow
+
+    class FakeLLM:
+        def generate_json(self, prompt, schema):
+            return {
+                "propositions": [
+                    {
+                        "subject": "システムA",
+                        "predicate": "requires",
+                        "object": "承認",
+                        "epistemic_status": "Fact",
+                        "rationale": "公式仕様",
+                        "source_quote": "システムAは承認を必要とする。",
+                    }
+                ]
+            }
+
+        def generate(self, prompt):
+            assert "未信頼の取得データ" in prompt
+            return "システムAには承認が必要です。"
+
+    result = run_source_record_workflow(
+        SourceRecord(
+            logical_id="manual#chunk-1",
+            source_id="manual",
+            source_uri="s3://docs/manual.pdf",
+            content="システムAは承認を必要とする。",
+        ),
+        query="承認",
+        llm_client=FakeLLM(),
+    )
+
+    assert result["generated_answer"] == "システムAには承認が必要です。"
+    assert result["propositions"][0]["source_uri"] == "s3://docs/manual.pdf"
+
+
+def test_search_workflow_adapts_document_search_results():
+    from organon_util.workflow import run_search_workflow
+
+    class FakeSearchClient:
+        def search(self, query, *, top_k=5):
+            assert query == "外部知識"
+            assert top_k == 2
+            return [
+                {
+                    "logical_id": "concept#chunk-1",
+                    "source_id": "concept",
+                    "source_uri": "file:///concept.md",
+                    "content": "MCPは外部知識を動的に注入する。",
+                    "metadata": {"source_authority": "factual"},
+                }
+            ]
+
+    result = run_search_workflow(FakeSearchClient(), "外部知識", top_k=2)
+
+    assert result["sources"][0]["logical_id"] == "concept#chunk-1"
+    assert result["answer"]["facts"][0]["object"] == "外部知識"

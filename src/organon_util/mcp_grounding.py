@@ -14,6 +14,23 @@ class GroundingResolver:
         self.knowledge = knowledge or {}
 
     def resolve(self, term: str) -> Dict[str, Any]:
+        return self.lookup_entity(term)
+
+    def lookup_entity(self, term: str) -> Dict[str, Any]:
         if term in self.knowledge:
-            return self.knowledge[term]
-        return {"kind": "unknown", "rule": None, "term": term}
+            return {**self.knowledge[term], "term": term, "grounded": True}
+        return {"kind": "unknown", "rule": None, "term": term, "grounded": False}
+
+    def get_domain_rule(self, entity_id: str) -> Dict[str, Any]:
+        entity = self.knowledge.get(entity_id, {})
+        rule = entity.get("rule")
+        if rule is None:
+            return {"entity_id": entity_id, "found": False, "rule": None}
+        return {"entity_id": entity_id, "found": True, "rule": rule}
+
+    def get_source_metadata(self, source_id: str) -> Dict[str, Any]:
+        entity = self.knowledge.get(source_id, {})
+        metadata = entity.get("source_metadata")
+        if metadata is None:
+            return {"source_id": source_id, "found": False, "metadata": {}}
+        return {"source_id": source_id, "found": True, "metadata": dict(metadata)}

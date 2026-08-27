@@ -72,6 +72,7 @@ def test_grounding_resolver_returns_context():
 
     assert result["kind"] == "document"
     assert result["rule"] == "specification_requires_approval"
+    assert result["grounded"] is True
 
 
 def test_feedback_loop_retries_on_validation_failure():
