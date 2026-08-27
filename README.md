@@ -26,3 +26,21 @@ source .venv/bin/activate
 pip install -e .
 pytest -q
 ```
+
+## LLM configuration
+
+The extractor and answer generator can share `LLMConfig`. The current PoC
+defaults to `enabled=false`, so rule-based extraction remains available when
+no LLM is configured. API keys are read from environment variables and should
+not be committed to configuration files.
+
+```bash
+export ORGANON_LLM_ENABLED=true
+export ORGANON_LLM_PROVIDER=openai
+export ORGANON_LLM_MODEL=gpt-4.1-mini
+export OPENAI_API_KEY=...
+```
+
+Supported providers are `openai`, `azure_openai`, `compatible`, and `ollama`.
+Provider-specific client construction will use this configuration in the LLM
+integration layer; this package does not call an external LLM by default.

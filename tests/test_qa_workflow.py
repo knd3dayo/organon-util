@@ -1,5 +1,6 @@
 from organon_util.extractor import Proposition
 from organon_util.qa import KnowledgeAssistant
+from organon_util.source import SourceRecord
 
 
 def _assistant() -> KnowledgeAssistant:
@@ -81,3 +82,39 @@ def test_add_document_indexes_extracted_propositions():
 
     assert len(result) == 1
     assert result[0]["document_id"] == "manual-v2"
+
+
+def test_source_record_preserves_document_search_metadata():
+    assistant = KnowledgeAssistant()
+    record = SourceRecord(
+        logical_id="manual-v2#chunk-00012",
+        source_id="manual-v2",
+        source_uri="s3://docs/manual-v2.pdf",
+        content="MCPは外部知識を動的に注入する。",
+        checksum="sha256:abc",
+        metadata={"source_authority": "authoritative"},
+    )
+
+    assistant.add_source_record(record)
+    result = assistant.search("外部知識")
+
+    assert result[0]["logical_id"] == "manual-v2#chunk-00012"
+    assert result[0]["source_uri"] == "s3://docs/manual-v2.pdf"
+    assert result[0]["checksum"] == "sha256:abc"
+
+
+def test_source_record_can_be_created_from_search_result_mapping():
+    record = SourceRecord.from_mapping(
+        {
+            "logical_id": "ticket-105#chunk-00001",
+            "source_id": "ticket-105",
+            "content": "同期エラーが報告された。",
+            "source_uri": "jira://ticket/105",
+            "metadata": {"source_authority": "contextual"},
+            "retrieved_at": "2026-08-27T10:00:00Z",
+        }
+    )
+
+    assert record.source_id == "ticket-105"
+    assert record.retrieved_at is not None
+    assert record.as_dict()["source_uri"] == "jira://ticket/105"

@@ -6,7 +6,8 @@ import re
 from dataclasses import dataclass
 from typing import Iterable, List, Sequence
 
-from .extractor import Proposition
+from .extractor import Proposition, extract_propositions
+from .source import SourceRecord
 
 
 @dataclass(frozen=True)
@@ -15,6 +16,10 @@ class IndexedProposition:
     proposition: Proposition
     document_id: str
     source_authority: str = "contextual"
+    logical_id: str = ""
+    source_uri: str = ""
+    checksum: str = ""
+    retrieved_at: str = ""
 
     def as_dict(self, score: float | None = None) -> dict[str, object]:
         item: dict[str, object] = {
@@ -28,6 +33,10 @@ class IndexedProposition:
             "source_quote": self.proposition.source_quote,
             "document_id": self.document_id,
             "source_authority": self.source_authority,
+            "logical_id": self.logical_id,
+            "source_uri": self.source_uri,
+            "checksum": self.checksum,
+            "retrieved_at": self.retrieved_at,
         }
         if score is not None:
             item["retrieval_score"] = score
@@ -77,12 +86,23 @@ class KnowledgeAssistant:
         source_authority: str = "contextual",
     ) -> None:
         """Extract and index one source document."""
-        from .extractor import extract_propositions
-
         self.add_propositions(
             extract_propositions(document),
             document_id=document_id,
             source_authority=source_authority,
+        )
+
+    def add_source_record(self, record: SourceRecord) -> None:
+        """Extract and index a document-search-util source record."""
+        source_authority = str(record.metadata.get("source_authority", "contextual"))
+        self.add_propositions(
+            extract_propositions(record.content),
+            document_id=record.source_id,
+            source_authority=source_authority,
+            logical_id=record.logical_id,
+            source_uri=record.source_uri,
+            checksum=record.checksum,
+            retrieved_at=record.retrieved_at.isoformat() if record.retrieved_at else "",
         )
 
     def add_propositions(
@@ -91,6 +111,10 @@ class KnowledgeAssistant:
         *,
         document_id: str,
         source_authority: str = "contextual",
+        logical_id: str = "",
+        source_uri: str = "",
+        checksum: str = "",
+        retrieved_at: str = "",
     ) -> None:
         for proposition in propositions:
             self._propositions.append(
@@ -99,6 +123,10 @@ class KnowledgeAssistant:
                     proposition=proposition,
                     document_id=document_id,
                     source_authority=source_authority,
+                    logical_id=logical_id,
+                    source_uri=source_uri,
+                    checksum=checksum,
+                    retrieved_at=retrieved_at,
                 )
             )
 
@@ -178,14 +206,14 @@ class KnowledgeAssistant:
             lines.append("公式・事実として登録された情報:")
             lines.extend(
                 f"- {claim_text(item)}。"
-                f" [Fact: {item['proposition_id']}; 出典: {item['document_id']}]"
+                f" [Fact: {item['proposition_id']}; 出典: {item['source_uri'] or item['document_id']}]"
                 for item in facts
             )
         if endoxa:
             lines.append("現場の報告・仮説:")
             lines.extend(
                 f"- {claim_text(item)}という報告・仮説があります。"
-                f" [Endoxa: {item['proposition_id']}; 出典: {item['document_id']}]"
+                f" [Endoxa: {item['proposition_id']}; 出典: {item['source_uri'] or item['document_id']}]"
                 for item in endoxa
             )
         if not facts and not endoxa:
