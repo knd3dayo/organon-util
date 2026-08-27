@@ -100,6 +100,26 @@ def test_fallacy_registry_detects_tagged_fallacies():
     }
 
 
+def test_fallacy_registry_detects_relation_and_exception_fallacies():
+    from organon_util.registries import FallacyRegistry
+
+    registry = FallacyRegistry.from_yaml(ROOT / "config" / "fallacies.yml")
+    proposition = Proposition(
+        subject="事象A",
+        predicate="causes",
+        object="事象B",
+        tags=["correlation_as_causation", "ignored_exception", "necessary_as_sufficient"],
+    )
+
+    findings = registry.detect([proposition])
+
+    assert {item["fallacy_id"] for item in findings} == {
+        "correlation_causation",
+        "ignoring_exceptions",
+        "necessary_sufficient_confusion",
+    }
+
+
 def test_grounding_resolver_exposes_explicit_lookup_tools():
     from organon_util.mcp_grounding import GroundingResolver
 

@@ -24,6 +24,10 @@ class Proposition:
     proposition_id: str = ""
     source_record_id: str = ""
     source_uri: str = ""
+    derived_from: List[str] = field(default_factory=list)
+    verification_method: str = ""
+    falsification_condition: str = ""
+    categorical_form: str = "UNSPECIFIED"
 
     def __post_init__(self) -> None:
         if self.modality not in {"MUST", "MAY", "ACTUAL"}:
@@ -32,11 +36,29 @@ class Proposition:
             raise ValueError(f"unsupported tense: {self.tense}")
         if self.epistemic_status not in {"Fact", "Endoxa", "Fallacy"}:
             raise ValueError(f"unsupported epistemic_status: {self.epistemic_status}")
+        if self.claim_type == "hypothesis" and not self.verification_method:
+            raise ValueError("hypothesis requires verification_method")
+        if self.categorical_form not in {"A", "E", "I", "O", "UNSPECIFIED"}:
+            raise ValueError(f"unsupported categorical_form: {self.categorical_form}")
         if not self.proposition_id:
             value = "\x1f".join(
                 [self.source, self.subject, self.predicate, self.object, self.source_quote]
             )
             self.proposition_id = f"prop-{hashlib.sha1(value.encode('utf-8')).hexdigest()[:12]}"
+
+    @property
+    def quantity(self) -> str:
+        return {"A": "universal", "E": "universal", "I": "particular", "O": "particular"}.get(
+            self.categorical_form,
+            "unspecified",
+        )
+
+    @property
+    def quality(self) -> str:
+        return {"A": "affirmative", "I": "affirmative", "E": "negative", "O": "negative"}.get(
+            self.categorical_form,
+            "unspecified",
+        )
 
 
 def _normalize(text: str) -> str:
@@ -72,6 +94,17 @@ def _classify_epistemic_status(sentence: str) -> str:
     return "Fact"
 
 
+def _classify_categorical_form(sentence: str) -> str:
+    universal = any(token in sentence for token in ("すべての", "全ての", "すべて", "全て", "例外なく"))
+    particular = any(token in sentence for token in ("ある", "一部の", "少なくとも1つ", "少なくとも一つ"))
+    negative = any(token in sentence for token in ("ではない", "しない", "できない", "存在しない"))
+    if universal:
+        return "E" if negative else "A"
+    if particular:
+        return "O" if negative else "I"
+    return "UNSPECIFIED"
+
+
 def _build_proposition(subject: str, predicate: str, obj: str, sentence: str, confidence: float = 0.8) -> Proposition:
     status = _classify_epistemic_status(sentence)
     rationale = (
@@ -89,6 +122,7 @@ def _build_proposition(subject: str, predicate: str, obj: str, sentence: str, co
         rationale=rationale,
         source_quote=sentence[:200],
         tags=[status.lower()],
+        categorical_form=_classify_categorical_form(sentence),
     )
 
 
@@ -123,6 +157,14 @@ def _add_sentence_pattern(propositions: list[Proposition], sentence: str) -> Non
             obj = _normalize(right)
             if subject and obj and not subject.startswith("###") and not obj.startswith("###"):
                 propositions.append(_build_proposition(subject, "is_a", obj, cleaned, confidence=0.8))
+
+    if "は" in cleaned and "ではない" in cleaned:
+        left, right = cleaned.split("は", 1)
+        right = right.replace("ではない", "").strip()
+        if left and right:
+            propositions.append(
+                _build_proposition(left, "is_not_a", right, cleaned, confidence=0.8)
+            )
 
     if "では" in cleaned and "避けられない" in cleaned:
         left, right = cleaned.split("では", 1)

@@ -25,6 +25,9 @@ class LocalReasoner:
 class PurePythonReasoner:
     """Apply OWL 2 RL/RDFS entailment and SHACL validation without Java."""
 
+    def __init__(self, shapes: Any | None = None) -> None:
+        self.shapes = shapes
+
     def infer(self, graph: Any) -> Any:
         try:
             from owlrl import DeductiveClosure, OWLRL_Semantics
@@ -64,7 +67,29 @@ class PurePythonReasoner:
                 if item.epistemic_status == "Fact"
             ]
         )
-        self.infer(graph.graph)
+        validation = self.validate_graph(graph.graph, self.shapes)
+        if not validation["conforms"]:
+            return AssuranceReport(
+                passed=False,
+                findings=[
+                    AssuranceFinding(
+                        code="shacl_violation",
+                        message=validation["report"],
+                        proposition_ids=tuple(
+                            item.proposition_id
+                            for item in propositions
+                            if item.epistemic_status == "Fact"
+                        ),
+                        severity="error",
+                        action="pending_review",
+                    )
+                ],
+                pending_propositions=[
+                    item.proposition_id
+                    for item in propositions
+                    if item.epistemic_status == "Fact"
+                ],
+            )
         return AssuranceReport(
             passed=True,
             accepted_propositions=[item.proposition_id for item in propositions if item.epistemic_status == "Fact"],

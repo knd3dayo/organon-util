@@ -131,6 +131,10 @@ class LLMPropositionExtractor:
                 tense=str(value.get("tense", "PRESENT")),
                 claim_type=str(value.get("claim_type", "statement")),
                 fallacy_details=value.get("fallacy_details"),
+                derived_from=[str(item) for item in value.get("derived_from", [])],
+                verification_method=str(value.get("verification_method", "")),
+                falsification_condition=str(value.get("falsification_condition", "")),
+                categorical_form=str(value.get("categorical_form", "UNSPECIFIED")),
                 source_record_id=source_record.logical_id if source_record else "",
                 source_uri=source_record.source_uri if source_record else "",
             )

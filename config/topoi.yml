@@ -28,3 +28,19 @@ topoi:
       - illicit_generalization
     explanation: "特定事例の命題を類全体へ拡張していないか確認する"
     automation_level: deterministic
+
+  - topoi_id: necessary_sufficient_conditions
+    name: 必要条件と十分条件
+    category: relation
+    risk:
+      - necessary_sufficient_confusion
+    explanation: "必要条件と十分条件を区別しているか確認する"
+    automation_level: assisted
+
+  - topoi_id: counterexample_and_exception
+    name: 反例と例外
+    category: exception
+    risk:
+      - ignoring_exceptions
+    explanation: "全称命題に反例または適用除外が存在しないか確認する"
+    automation_level: assisted

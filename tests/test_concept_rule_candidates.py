@@ -206,6 +206,20 @@ def test_concept_workflow_keeps_endoxa_pending():
     assert result["status"] == "pending"
 
 
+def test_concept_workflow_does_not_approve_conflicting_facts():
+    from organon_util.assurance import AssuranceLayer
+    from organon_util.extractor import Proposition
+
+    layer = AssuranceLayer.from_config_dir("config")
+    first = Proposition(subject="CRM", predicate="uses", object="SystemA")
+    second = Proposition(subject="CRM", predicate="uses", object="SystemB")
+
+    report = layer.validate([first, second])
+
+    assert report.passed is False
+    assert report.accepted_propositions == []
+
+
 def test_versioned_fact_graph_serializes_rdf_and_json():
     from organon_util.rules import FactStatement, VersionedFactGraph
 

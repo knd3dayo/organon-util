@@ -25,6 +25,9 @@ llm = [
 reasoner = [
   "owlready2>=0.46.0",
 ]
+mcp = [
+  "fastmcp>=2.0.0",
+]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

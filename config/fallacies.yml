@@ -22,3 +22,27 @@ fallacies:
       authority_without_independent_evidence: true
     action: keep_as_endoxa
     explanation: "権威者の発言だけを根拠に事実化している"
+
+  - fallacy_id: correlation_causation
+    name: 相関と因果の混同
+    category: relation
+    detection:
+      correlation_asserted_as_cause: true
+    action: request_more_evidence
+    explanation: "相関関係だけを根拠に因果関係を断定している"
+
+  - fallacy_id: ignoring_exceptions
+    name: 例外の無視
+    category: exception
+    detection:
+      universal_claim_ignores_counterexample: true
+    action: downgrade_or_request_evidence
+    explanation: "反例または適用除外を無視して全称命題を維持している"
+
+  - fallacy_id: necessary_sufficient_confusion
+    name: 必要条件と十分条件の混同
+    category: relation
+    detection:
+      necessary_asserted_as_sufficient: true
+    action: pending_review
+    explanation: "必要条件を十分条件として扱っている"

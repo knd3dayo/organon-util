@@ -4,12 +4,32 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from .assurance import AssuranceLayer
-from .extractor import extract_propositions
+from .contextual_graph import ContextualRDFGraph
+from .extractor import Proposition, extract_propositions
 from .llm import LLMAnswerGenerator, LLMPropositionExtractor
 from .qa import KnowledgeAssistant
 from .rules import FactStatement, Rule, SourcePriority, VersionedFactGraph, approved_graph, validate_graph
 from .source import SourceRecord
 from .source_adapter import SourceSearchClient, search_source_records
+
+
+def run_contextual_reasoning_workflow(
+    propositions: List[Proposition],
+    reasoner: Any,
+) -> Dict[str, Any]:
+    """Separate epistemic contexts and reason over the Core graph only."""
+    contextual_graph = ContextualRDFGraph()
+    contextual_graph.add_propositions(propositions)
+    validation = reasoner.validate_graph(contextual_graph.graph("core"))
+    return {
+        "passed": bool(validation["conforms"]),
+        "contexts": {
+            name: contextual_graph.graph_size(name)
+            for name in ContextualRDFGraph.CONTEXTS
+        },
+        "reasoning_report": validation["report"],
+        "dataset": contextual_graph,
+    }
 
 
 def run_concept_workflow(document: str, approved_by: str = "system") -> Dict[str, Any]:
@@ -47,24 +67,33 @@ def run_concept_workflow(document: str, approved_by: str = "system") -> Dict[str
             epistemic_status=getattr(proposition, "epistemic_status", "Fact"),
             valid_from="2026-08-27",
             source=source,
-            approved_by=approved_by if getattr(proposition, "epistemic_status", "Fact") == "Fact" else "",
+            approved_by=(
+                approved_by
+                if proposition.proposition_id in assurance_report.accepted_propositions
+                else ""
+            ),
             modality=getattr(proposition, "modality", "ACTUAL"),
             tense=getattr(proposition, "tense", "PRESENT"),
             claim_type=getattr(proposition, "claim_type", "statement"),
             fallacy_details=getattr(proposition, "fallacy_details", None),
             proposition_id=getattr(proposition, "proposition_id", ""),
             source_record_id=getattr(proposition, "source_record_id", ""),
+            derived_from=list(getattr(proposition, "derived_from", [])),
+            verification_method=getattr(proposition, "verification_method", ""),
+            falsification_condition=getattr(proposition, "falsification_condition", ""),
+            categorical_form=getattr(proposition, "categorical_form", "UNSPECIFIED"),
         )
         graph.add_fact(fact)
 
     ranked = graph.rank_by_source_priority(source_priority)
     active = graph.active_facts()
-    pending = [item for item in active if item.epistemic_status == "Endoxa"]
+    pending_ids = set(assurance_report.pending_propositions)
+    pending = [item for item in active if item.proposition_id in pending_ids]
     accepted_ids = set(assurance_report.accepted_propositions)
     rejected_ids = set(assurance_report.rejected_propositions)
-    status = "rejected" if rejected_ids else "pending" if pending else "approved"
+    status = "rejected" if rejected_ids else "pending" if pending_ids else "approved"
     return {
-        "passed": True,
+        "passed": assurance_report.passed,
         "status": status,
         "approved_count": sum(
             1
@@ -121,6 +150,7 @@ def run_source_record_workflow(
     proposition_extractor: Any | None = None,
     assurance_layer: AssuranceLayer | None = None,
     llm_client: Any | None = None,
+    reasoner: Any | None = None,
     top_k: int = 5,
 ) -> Dict[str, Any]:
     """Ingest one SourceRecord and optionally answer a question from it."""
@@ -152,6 +182,14 @@ def run_source_record_workflow(
         retrieved_at=record.retrieved_at.isoformat() if record.retrieved_at else "",
     )
     result: Dict[str, Any] = {
+        "passed": report.passed,
+        "status": (
+            "rejected"
+            if report.rejected_propositions
+            else "pending"
+            if report.pending_propositions
+            else "approved"
+        ),
         "source": record.as_dict(),
         "propositions": [
             {
@@ -162,11 +200,29 @@ def run_source_record_workflow(
                 "epistemic_status": item.epistemic_status,
                 "source_record_id": item.source_record_id,
                 "source_uri": item.source_uri,
+                "confidence": item.confidence,
+                "rationale": item.rationale,
+                "source_quote": item.source_quote,
+                "tags": list(item.tags),
+                "modality": item.modality,
+                "tense": item.tense,
+                "claim_type": item.claim_type,
+                "fallacy_details": item.fallacy_details,
+                "derived_from": list(item.derived_from),
+                "verification_method": item.verification_method,
+                "falsification_condition": item.falsification_condition,
+                "categorical_form": item.categorical_form,
             }
             for item in propositions
         ],
         "assurance": report.as_dict(),
     }
+    if reasoner is not None:
+        reasoning_report = reasoner.validate(propositions)
+        result["reasoning"] = reasoning_report.as_dict()
+        if not reasoning_report.passed:
+            result["passed"] = False
+            result["status"] = "pending"
     if query:
         result["answer"] = assistant.answer(query, top_k=top_k)
         if llm_client is not None:
@@ -186,6 +242,7 @@ def run_search_workflow(
     proposition_extractor: Any | None = None,
     assurance_layer: AssuranceLayer | None = None,
     llm_client: Any | None = None,
+    reasoner: Any | None = None,
 ) -> Dict[str, Any]:
     """Search source records and answer using the retrieved evidence."""
     records = search_source_records(client, query, top_k=top_k)
@@ -195,21 +252,59 @@ def run_search_workflow(
             proposition_extractor=proposition_extractor,
             assurance_layer=assurance_layer,
             llm_client=llm_client,
+            reasoner=reasoner,
         )
         for record in records
     ]
     propositions = [item for result in ingested for item in result["propositions"]]
     assistant = KnowledgeAssistant()
-    for record in records:
-        assistant.add_source_record(record)
+    records_by_id = {record.logical_id: record for record in records}
+    for value in propositions:
+        proposition = Proposition(
+            subject=value["subject"],
+            predicate=value["predicate"],
+            object=value["object"],
+            confidence=value["confidence"],
+            epistemic_status=value["epistemic_status"],
+            rationale=value["rationale"],
+            source_quote=value["source_quote"],
+            tags=value["tags"],
+            modality=value["modality"],
+            tense=value["tense"],
+            claim_type=value["claim_type"],
+            fallacy_details=value["fallacy_details"],
+            proposition_id=value["proposition_id"],
+            source_record_id=value["source_record_id"],
+            source_uri=value["source_uri"],
+            derived_from=value["derived_from"],
+            verification_method=value["verification_method"],
+            falsification_condition=value["falsification_condition"],
+            categorical_form=value["categorical_form"],
+        )
+        record = records_by_id[proposition.source_record_id]
+        assistant.add_propositions(
+            [proposition],
+            document_id=record.source_id,
+            source_authority=str(record.metadata.get("source_authority", "contextual")),
+            logical_id=record.logical_id,
+            source_uri=record.source_uri,
+            checksum=record.checksum,
+            retrieved_at=record.retrieved_at.isoformat() if record.retrieved_at else "",
+        )
     answer = assistant.answer(query, top_k=top_k)
-    return {
+    result: Dict[str, Any] = {
         "query": query,
         "sources": [record.as_dict() for record in records],
         "ingested": ingested,
         "answer": answer,
         "propositions": propositions,
     }
+    if llm_client is not None:
+        result["generated_answer"] = LLMAnswerGenerator(llm_client).generate(
+            query,
+            assistant.search(query, top_k=top_k),
+        )
+    return result
 
 
 def run_poc_pipeline(document: str, rules: List[Rule], approved_by: str = "system") -> Dict[str, Any]:

@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 
 from organon_util.evaluation import (
     citation_precision,
@@ -58,3 +59,22 @@ def test_concept_fixed_evaluation_set_produces_baseline_metrics():
         retrieval["macro_average"]["insufficient_evidence_correct"]
         >= thresholds["insufficient_evidence_accuracy"]
     )
+
+
+def test_fixed_epistemic_and_categorical_evaluation_set():
+    dataset = json.loads(
+        (ROOT / "tests" / "evaluation" / "epistemic_quality.json").read_text(encoding="utf-8")
+    )
+    categorical_results = []
+    epistemic_results = []
+    for case in dataset["cases"]:
+        propositions = extract_propositions(case["text"])
+        categorical = case.get("expected_categorical_form")
+        if categorical:
+            categorical_results.append(any(item.categorical_form == categorical for item in propositions))
+        epistemic_results.append(
+            any(item.epistemic_status == case["expected_epistemic_status"] for item in propositions)
+        )
+
+    assert sum(categorical_results) / len(categorical_results) >= dataset["thresholds"]["categorical_accuracy"]
+    assert sum(epistemic_results) / len(epistemic_results) >= dataset["thresholds"]["epistemic_accuracy"]

@@ -215,3 +215,58 @@ def test_search_workflow_adapts_document_search_results():
 
     assert result["sources"][0]["logical_id"] == "concept#chunk-1"
     assert result["answer"]["facts"][0]["object"] == "外部知識"
+
+
+def test_search_workflow_answers_from_llm_extracted_propositions():
+    from organon_util.workflow import run_search_workflow
+
+    class SearchClient:
+        def search(self, query, *, top_k=5):
+            return [{"logical_id": "doc#1", "source_id": "doc", "content": "任意の原文"}]
+
+    class LLMClient:
+        def generate_json(self, prompt, schema):
+            return {
+                "propositions": [
+                    {
+                        "subject": "独自概念",
+                        "predicate": "requires",
+                        "object": "固有条件",
+                        "epistemic_status": "Fact",
+                        "rationale": "テスト根拠",
+                        "source_quote": "任意の原文",
+                    }
+                ]
+            }
+
+        def generate(self, prompt):
+            return "固有条件が必要です。"
+
+    result = run_search_workflow(SearchClient(), "固有条件", llm_client=LLMClient())
+
+    assert result["answer"]["facts"][0]["subject"] == "独自概念"
+    assert result["generated_answer"] == "固有条件が必要です。"
+
+
+def test_source_record_workflow_marks_reasoner_failure_pending():
+    from organon_util.assurance import AssuranceFinding, AssuranceReport
+    from organon_util.workflow import run_source_record_workflow
+
+    class FailingReasoner:
+        def validate(self, propositions):
+            return AssuranceReport(
+                passed=False,
+                findings=[AssuranceFinding(code="shacl_violation", message="必須値なし")],
+            )
+
+    result = run_source_record_workflow(
+        SourceRecord(
+            logical_id="concept#1",
+            source_id="concept",
+            content="MCPは外部知識を動的に注入する。",
+        ),
+        reasoner=FailingReasoner(),
+    )
+
+    assert result["passed"] is False
+    assert result["status"] == "pending"

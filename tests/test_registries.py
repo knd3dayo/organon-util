@@ -56,3 +56,28 @@ def test_fallacy_registry_rejects_unknown_details():
         assert "unknown fallacy_id" in str(error)
     else:
         raise AssertionError("unknown fallacy must be rejected")
+
+
+def test_topos_detects_particular_premise_to_universal_conclusion():
+    registry = ToposRegistry.from_yaml(ROOT / "config" / "topoi.yml")
+    premise = Proposition(
+        subject="ある顧客",
+        predicate="reports",
+        object="障害",
+        categorical_form="I",
+    )
+    conclusion = Proposition(
+        subject="すべての顧客",
+        predicate="reports",
+        object="障害",
+        categorical_form="A",
+        derived_from=[premise.proposition_id],
+    )
+
+    findings = registry.evaluate([premise, conclusion])
+
+    assert any(
+        item["topoi_id"] == "particular_to_universal_scope"
+        and conclusion.proposition_id in item["applied_to"]
+        for item in findings
+    )

@@ -1,0 +1,32 @@
+{
+  "cases": [
+    {
+      "text": "すべての仕様書は文書である。",
+      "expected_categorical_form": "A",
+      "expected_epistemic_status": "Fact"
+    },
+    {
+      "text": "すべての仕様書は公開文書ではない。",
+      "expected_categorical_form": "E",
+      "expected_epistemic_status": "Fact"
+    },
+    {
+      "text": "ある仕様書は文書である。",
+      "expected_categorical_form": "I",
+      "expected_epistemic_status": "Fact"
+    },
+    {
+      "text": "ある仕様書は公開文書ではない。",
+      "expected_categorical_form": "O",
+      "expected_epistemic_status": "Fact"
+    },
+    {
+      "text": "営業部はこの画面を使いにくいと評価している。",
+      "expected_epistemic_status": "Endoxa"
+    }
+  ],
+  "thresholds": {
+    "categorical_accuracy": 1.0,
+    "epistemic_accuracy": 0.8
+  }
+}

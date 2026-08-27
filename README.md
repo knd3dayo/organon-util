@@ -57,4 +57,12 @@ OWL/DL reasoning is optional. Install `owlready2` with `pip install -e
 The standard reasoning path is pure Python: `owlrl` provides RDFS/OWL 2 RL
 entailment and `pySHACL` provides constraint validation. HermiT is an optional
 extension for OWL 2 DL reasoning and requires Java.
+
+Run the optional live E2E against document-search-util with:
+
+```bash
+DOCUMENT_SEARCH_UTIL_URL=http://localhost:8000 \
+DOCUMENT_SEARCH_UTIL_QUERY='外部知識' \
+pytest -q tests/test_document_search_live_e2e.py
+```
 '.[reasoner]'` and provide a Java runtime when using `HermiTReasoner`.

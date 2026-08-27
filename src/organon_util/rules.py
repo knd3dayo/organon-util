@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from typing import Any, Dict, List
@@ -41,6 +41,10 @@ class FactStatement:
     fallacy_details: Dict[str, Any] | None = None
     proposition_id: str = ""
     source_record_id: str = ""
+    derived_from: List[str] = field(default_factory=list)
+    verification_method: str = ""
+    falsification_condition: str = ""
+    categorical_form: str = "UNSPECIFIED"
 
 
 class VersionedFactGraph:
@@ -120,6 +124,10 @@ class VersionedFactGraph:
                 "fallacy_details": fact.fallacy_details,
                 "proposition_id": fact.proposition_id,
                 "source_record_id": fact.source_record_id,
+                "derived_from": fact.derived_from,
+                "verification_method": fact.verification_method,
+                "falsification_condition": fact.falsification_condition,
+                "categorical_form": fact.categorical_form,
             }
             for fact in self._facts
         ]

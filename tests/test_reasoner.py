@@ -53,3 +53,21 @@ def test_pure_python_reasoner_validates_shacl_shape():
 
     assert result["conforms"] is False
     assert "Validation Report" in result["report"]
+
+
+def test_pure_python_reasoner_returns_failed_assurance_on_shacl_violation():
+    shapes_graph = Graph()
+    example = Namespace("urn:organon:")
+    shapes = Namespace("http://www.w3.org/ns/shacl#")
+    shapes_graph.add((example.RequirementShape, RDF.type, shapes.NodeShape))
+    shapes_graph.add((example.RequirementShape, shapes.targetSubjectsOf, example.requires))
+    shapes_graph.add((example.RequirementShape, shapes.property, example.RequiredTitle))
+    shapes_graph.add((example.RequiredTitle, shapes.path, example.title))
+    shapes_graph.add((example.RequiredTitle, shapes.minCount, Literal(1)))
+    proposition = Proposition(subject="仕様書", predicate="requires", object="承認")
+
+    report = PurePythonReasoner(shapes_graph).validate([proposition])
+
+    assert report.passed is False
+    assert report.findings[0].code == "shacl_violation"
+    assert proposition.proposition_id in report.pending_propositions

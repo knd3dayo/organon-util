@@ -45,6 +45,12 @@ class IndexedProposition:
             "claim_type": self.proposition.claim_type,
             "fallacy_details": self.proposition.fallacy_details,
             "proposition_source_record_id": self.proposition.source_record_id,
+            "derived_from": list(self.proposition.derived_from),
+            "verification_method": self.proposition.verification_method,
+            "falsification_condition": self.proposition.falsification_condition,
+            "categorical_form": self.proposition.categorical_form,
+            "quantity": self.proposition.quantity,
+            "quality": self.proposition.quality,
         }
         if score is not None:
             item["retrieval_score"] = score

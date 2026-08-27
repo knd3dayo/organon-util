@@ -54,6 +54,7 @@ class ToposRegistry:
 
     def evaluate(self, propositions: Iterable[Proposition]) -> list[dict[str, Any]]:
         items = list(propositions)
+        by_id = {item.proposition_id: item for item in items}
         findings: list[dict[str, Any]] = []
         for proposition in items:
             if proposition.predicate != "is_a":
@@ -89,6 +90,25 @@ class ToposRegistry:
                         "required_review": True,
                     }
                 )
+        for proposition in items:
+            if proposition.categorical_form not in {"A", "E"}:
+                continue
+            particular_sources = [
+                source_id
+                for source_id in proposition.derived_from
+                if source_id in by_id and by_id[source_id].categorical_form in {"I", "O"}
+            ]
+            if not particular_sources:
+                continue
+            findings.append(
+                {
+                    "topoi_id": "particular_to_universal_scope",
+                    "applied_to": [*particular_sources, proposition.proposition_id],
+                    "assessment": "scope_expansion_candidate",
+                    "explanation": "特称命題を根拠として全称命題を導いている",
+                    "required_review": True,
+                }
+            )
         return findings
 
 
@@ -153,6 +173,12 @@ class FallacyRegistry:
                 candidates.append("hasty_generalization")
             if "authority_only" in tags:
                 candidates.append("ad_verecundiam")
+            if "correlation_as_causation" in tags:
+                candidates.append("correlation_causation")
+            if "ignored_exception" in tags:
+                candidates.append("ignoring_exceptions")
+            if "necessary_as_sufficient" in tags:
+                candidates.append("necessary_sufficient_confusion")
             for fallacy_id in candidates:
                 rule = self.get(fallacy_id)
                 findings.append(
